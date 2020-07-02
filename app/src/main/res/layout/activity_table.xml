@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="org.pytorch.helloworld.activity.TableActivity">
+    <ScrollView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+
+        android:id="@+id/scroll_table">
+        <TableLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:stretchColumns="0,1,2"
+            android:id="@+id/table">
+            <TableRow
+                android:id="@+id/row_1"
+                android:layout_width="match_parent">
+
+                <TextView
+                    android:id="@+id/STT"
+                    android:text="STT"
+                    android:textAlignment="center">
+
+                </TextView>
+                <TextView
+                    android:id="@+id/MSSV"
+                    android:text="MSSV"
+                    android:textAlignment="center">
+
+                </TextView>
+                <TextView
+                    android:id="@+id/Diem"
+                    android:text="Diem"
+                    android:textAlignment="center">
+
+                </TextView>
+
+            </TableRow>
+        </TableLayout>
+    </ScrollView>
+
+</RelativeLayout>

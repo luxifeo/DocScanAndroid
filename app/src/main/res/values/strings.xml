@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Table Scanner</string>
+    <string name="share">Share</string>
+    <string name="process">Process</string>
+    <string name="table_preview_description">table preview</string>
+    <string name="from_gallery">From gallery</string>
+    <string name="take_photo">Take Photo</string>
+    <string name="please_wait">Please wait ...</string>
+</resources>

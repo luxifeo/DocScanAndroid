@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Quét Bảng Điểm</string>
+    <string name="share">Chia Sẻ</string>
+    <string name="process">Xử lý</string>
+    <string name="table_preview_description">Bảng Điểm</string>
+    <string name="from_gallery">Thư mục Ảnh</string>
+    <string name="take_photo">Chụp Ảnh</string>
+    <string name="please_wait">Đang xử lý ...</string>
+</resources>
