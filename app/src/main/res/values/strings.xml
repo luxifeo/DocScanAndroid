@@ -6,4 +6,5 @@
     <string name="from_gallery">From gallery</string>
     <string name="take_photo">Take Photo</string>
     <string name="please_wait">Please wait ...</string>
+    <string name="table_not_found">The table is not found</string>
 </resources>

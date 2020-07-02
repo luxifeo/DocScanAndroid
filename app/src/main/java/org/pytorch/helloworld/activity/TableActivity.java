@@ -72,12 +72,6 @@ public class TableActivity extends AppCompatActivity {
             editText2.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
             row.addView(editText2);
 
-//            EditText editText3 = new EditText(this);
-//            editText3.setId(View.generateViewId());
-//            editText3.setText(tableData[i][2]);
-//            editText3.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-//            row.addView(editText3);
-
             EditText editText4 = new EditText(this);
             editText4.setId(View.generateViewId());
             editText4.setText(tableData[i][4]);

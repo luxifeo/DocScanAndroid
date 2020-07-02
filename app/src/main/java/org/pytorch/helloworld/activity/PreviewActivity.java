@@ -61,8 +61,6 @@ public class PreviewActivity extends AppCompatActivity {
     private ImageView imageView;
     private View progressView;
     private Handler handler = new Handler();
-    private PolygonView polygonView;
-    Map<Integer, PointF> pointFs;
     static {
         if (!OpenCVLoader.initDebug())
             Log.d("ERROR", "Unable to load OpenCV");
@@ -72,7 +70,6 @@ public class PreviewActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        pointFs = new HashMap<>();
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_preview);
 
@@ -80,17 +77,10 @@ public class PreviewActivity extends AppCompatActivity {
         Uri uri = Uri.parse(intent.getStringExtra("URI"));
         imageView = findViewById(R.id.preview_image);
         progressView = findViewById(R.id.llProgressBar);
-//        polygonView = findViewById(R.id.polygon_view);
         Bitmap bitmap;
         try {
             bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), uri);
             getTableFromBitmapAndShow(bitmap);
-//            polygonView = findViewById(R.id.polygon_view);
-//            pointFs.put(0, new PointF(0, 0));
-//            pointFs.put(1, new PointF(100, 400));
-//            pointFs.put(2, new PointF(400, 400));
-//            pointFs.put(3, new PointF(400, 100));
-//            polygonView.setPoints(pointFs);
         } catch (IOException e) {
             e.printStackTrace();
             Toast.makeText(this, "IO error", Toast.LENGTH_SHORT).show();
@@ -98,13 +88,16 @@ public class PreviewActivity extends AppCompatActivity {
 
         final Button buttonProcess = findViewById(R.id.buttonProcess);
         buttonProcess.setOnClickListener(view -> {
-            new Thread(() -> {
-                handler.post(() -> progressView.setVisibility(View.VISIBLE));
-                tableData = processTable(table, gray_table);
-                handler.post(() -> progressView.setVisibility(View.INVISIBLE));
-                launchTableActivity(buttonProcess);
-            }).start();
-
+            if (table == null) {
+                Toast.makeText(this, R.string.table_not_found, Toast.LENGTH_SHORT).show();
+            } else {
+                new Thread(() -> {
+                    handler.post(() -> progressView.setVisibility(View.VISIBLE));
+                    tableData = processTable(table, gray_table);
+                    handler.post(() -> progressView.setVisibility(View.INVISIBLE));
+                    launchTableActivity(buttonProcess);
+                }).start();
+            }
 
         });
 
@@ -123,7 +116,6 @@ public class PreviewActivity extends AppCompatActivity {
             prepareLanguageDir();
             mTess = new TessBaseAPI();
             mTess.init(String.valueOf(getFilesDir()), "vie");
-
         } catch (IOException e) {
             Toast.makeText(this, "Cannot load the model", Toast.LENGTH_SHORT).show();
             finish();
@@ -131,40 +123,35 @@ public class PreviewActivity extends AppCompatActivity {
     }
 
     private void getTableFromBitmapAndShow(Bitmap bitmap) {
+        // Convert Bitmap to Mat
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
         if (height < width) {
             bitmap = RotateBitmap(bitmap, 90);
         }
-//        imageView.setImageBitmap(bitmap);
-//        return;
         Mat mat = new Mat();
-
         Bitmap bmp32 = bitmap.copy(bitmap.getConfig(), true);
         Utils.bitmapToMat(bmp32, mat);
+        // Resize Mat
         Mat small = new Mat();
         int orgHeight = mat.height();
-
         int smallHeight = 500;
         double ratio = (double) smallHeight / orgHeight;
         Imgproc.resize(mat, small, new Size(0, 0), ratio, ratio, Imgproc.INTER_LINEAR);
+        // Calculate Canny
         Mat gray1 = new Mat();
         Imgproc.cvtColor(small, gray1, Imgproc.COLOR_RGB2GRAY);
-
         Mat edge = new Mat();
         Imgproc.Canny(gray1, edge, 75, 200);
-
+        // Close potential edge
         Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5, 5));
-        Mat dilation = new Mat();
-        Imgproc.dilate(edge, dilation, kernel);
-        Mat erosion = new Mat();
-        Imgproc.erode(dilation, erosion, kernel);
+        Mat close = new Mat();
+        Imgproc.morphologyEx(edge, close, Imgproc.MORPH_CLOSE, kernel);
         List<MatOfPoint> contours = new ArrayList<>();
 
-        Imgproc.findContours(erosion, contours, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 
         // find max area
-
+        Imgproc.findContours(close, contours, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
         ProcessImage.sortContours(contours);
         MatOfPoint2f temp = new MatOfPoint2f();
         MatOfPoint2f approx = new MatOfPoint2f();
@@ -177,18 +164,16 @@ public class PreviewActivity extends AppCompatActivity {
                 break;
             }
             maxAreaIndex++;
+            // Search only 5 biggest contour
             if (maxAreaIndex == 5) {
-                maxAreaIndex = contours.size();
                 break;
             }
         }
-        if (maxAreaIndex == contours.size()) {
+        if (maxAreaIndex == 5) {
             imageView.setImageBitmap(bitmap);
-            Toast.makeText(this, "Cannot find table in image", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.table_not_found, Toast.LENGTH_SHORT).show();
             return;
-            // TODO: Handle failure case
         }
-
         Point[] points = approx.toArray();
         for (Point point : points) {
             point.x /= ratio;
@@ -196,19 +181,13 @@ public class PreviewActivity extends AppCompatActivity {
         }
         approx.fromArray(points);
 
-        points = contours.get(maxAreaIndex).toArray();
-        for (Point point : points) {
-            point.x /= ratio;
-            point.y /= ratio;
-        }
-        contours.get(maxAreaIndex).fromArray(points);
-
-//        Imgproc.drawContours(mat, contours, maxAreaIndex, new Scalar(255, 0, 0), 10);
-
+//        points = contours.get(maxAreaIndex).toArray();
+//        for (Point point : points) {
+//            point.x /= ratio;
+//            point.y /= ratio;
+//        }
+//        contours.get(maxAreaIndex).fromArray(points);
         Mat paper = ProcessImage.fourPointTransform(mat, approx);
-//        Bitmap bitmapPaper = Bitmap.createBitmap(paper.width(), paper.height(), Bitmap.Config.ARGB_8888);
-//        Utils.matToBitmap(paper, bitmapPaper);
-//        imageView.setImageBitmap(bitmapPaper);
         height = paper.height();
         width = paper.width();
         Imgproc.cvtColor(paper, gray1, Imgproc.COLOR_BGR2GRAY);
@@ -244,24 +223,26 @@ public class PreviewActivity extends AppCompatActivity {
         }
 
         if (maxAreaIndex == contours.size()) {
-            // TODO: Handle failure case
+            return;
         }
-        Point[] tablePoints = approx.toArray();
+//        Point[] tablePoints = approx.toArray();
         Imgproc.drawContours(paper, contours, maxAreaIndex, new Scalar(255, 0, 0, 255), 10);
+        // TODO: MatOfPoint2f to MatOfPoint
 
-        Bitmap bitmapPaper = Bitmap.createBitmap(paper.width(), paper.height(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(paper, bitmapPaper);
-        imageView.setImageBitmap(bitmapPaper);
-//        for (int i = 0; i < tablePoints.length; i++) {
-//            pointFs.put()
-//        }
-//        polygonView.setPoints(pointFs);
+        Mat smallPaper = new Mat();
+        Imgproc.resize(paper, smallPaper, new Size(0, 0), 0.5, 0.5, Imgproc.INTER_LINEAR);
+        Bitmap bitmapPaper = Bitmap.createBitmap(smallPaper.width(), smallPaper.height(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(smallPaper, bitmapPaper);
         this.table = ProcessImage.fourPointTransform(gray1, approx);
+//        Bitmap bitmapPaper = Bitmap.createBitmap(this.table.width(), this.table.height(), Bitmap.Config.ARGB_8888);
+//        Utils.matToBitmap(table, bitmapPaper);
+        imageView.setImageBitmap(bitmapPaper);
         this.gray_table = ProcessImage.fourPointTransform(thresh, approx);
     }
 
 
     private String[][] processTable(Mat table, Mat gray_table) {
+        // Finding the and the vertices in the image
         int width = gray_table.width();
         Mat h_structure = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size((int) (width / 15), 1));
         Mat w_structure = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(1, (int) (width / 15)));
@@ -276,6 +257,7 @@ public class PreviewActivity extends AppCompatActivity {
         for (MatOfPoint contour : contours) {
             joints.add(new Point(contour.get(0, 0)));
         }
+        // Sort vertices and groups into rows
         Collections.sort(joints, (point, t1) -> {
             if (point.y > t1.y) {
                 return 1;
@@ -292,21 +274,23 @@ public class PreviewActivity extends AppCompatActivity {
         });
         int group_id = 0;
         for (int i = 1; i < joints.size(); i++) {
-            if (Math.abs(joints.get(i).y - joints.get(i - 1).y) < 5) {
+            if (Math.abs(joints.get(i).y - joints.get(i - 1).y) < 10) {
                 group.get(group_id).add(joints.get(i));
             } else {
                 // Very likely this is a false straight line
                 if (group.get(group_id).size() <= 2) {
+                    int finalI = i;
                     group.set(group_id, new ArrayList<Point>() {
                         {
-                            add(joints.get(0));
+                            add(joints.get(finalI));
                         }
                     });
                 } else {
                     group_id++;
+                    int finalI1 = i;
                     group.add(new ArrayList<Point>() {
                         {
-                            add(joints.get(0));
+                            add(joints.get(finalI1));
                         }
                     });
                 }
@@ -360,7 +344,7 @@ public class PreviewActivity extends AppCompatActivity {
                     int group_y = (int) g.get(g_size - 1).y;
                     if (j == g.size()) {
                         g.add(j, new Point(avg_x[j], group_y));
-                    } else if (avg_x[j] - g.get(j).x > 15) {
+                    } else if (Math.abs(avg_x[j] - g.get(j).x) > 15) {
                         g.add(j, new Point(avg_x[j], g.get(j).y));
                     }
                 }
@@ -369,6 +353,7 @@ public class PreviewActivity extends AppCompatActivity {
 
         String[][] tableData = new String[group.size() - 2][5];
         for (int i = 1; i < group.size() - 1; i++) {
+            // Deal with 4 columns
             for (int j = 0; j < 4; j++) {
                 Mat box = ProcessImage.getBox(i, j, table, group);
                 int box_width = box.width();
@@ -462,7 +447,6 @@ public class PreviewActivity extends AppCompatActivity {
         while ((read = is.read(buffer)) != -1) {
             os.write(buffer, 0, read);
         }
-
         is.close();
         os.flush();
         os.close();

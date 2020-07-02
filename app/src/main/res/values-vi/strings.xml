@@ -7,4 +7,5 @@
     <string name="from_gallery">Thư mục Ảnh</string>
     <string name="take_photo">Chụp Ảnh</string>
     <string name="please_wait">Đang xử lý ...</string>
+    <string name="table_not_found">Không tìm thấy bảng trong ảnh</string>
 </resources>
