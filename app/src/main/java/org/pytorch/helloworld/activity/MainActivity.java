@@ -40,6 +40,7 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.pytorch.helloworld.processing.ProcessImage;
@@ -111,10 +112,10 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void takePhoto() {
-        if (pointCount != 4) {
-            Toast.makeText(getApplicationContext(), "Paper not found" + String.valueOf(pointCount), Toast.LENGTH_SHORT).show();
-            return;
-        }
+//        if (pointCount != 4) {
+//            Toast.makeText(getApplicationContext(), "Paper not found" + String.valueOf(pointCount), Toast.LENGTH_SHORT).show();
+//            return;
+//        }
         File photoFile = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "" + System.currentTimeMillis() + "X.jpg");
         Uri fileUri = Uri.fromFile(photoFile);
         ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(photoFile).build();
@@ -184,12 +185,17 @@ public class MainActivity extends AppCompatActivity {
             int width = image.getWidth(); // 640
             int height = image.getHeight(); // 480
             // Turn ImageProxy to Gray Image
+            // buf = gray Image
             Mat buf = new Mat(height, width, CvType.CV_8UC1);
             ByteBuffer buffer = image.getPlanes()[0].getBuffer();
             buffer.rewind();
             byte[] bytes = new byte[buffer.remaining()];
             buffer.get(bytes);
             buf.put(0, 0, bytes);
+            Mat threshold = new Mat();
+            Imgproc.threshold(buf, threshold, 0, 255, Imgproc.THRESH_OTSU + Imgproc.THRESH_BINARY);
+            Scalar mean = Core.mean(threshold);
+
             // Canny Edge Detection
             if (rotation == 90) {
                 Core.rotate(buf, buf, Core.ROTATE_90_CLOCKWISE);
@@ -242,12 +248,14 @@ public class MainActivity extends AppCompatActivity {
                 }
                 path.close();
                 canvas.drawPath(path, paint);
-                canvas.drawText(contourArea + "-" + approx.size(), 50, 50, textPaint);
+//                canvas.drawText(contourArea + "-" + approx.size(), 50, 50, textPaint);
                 pointCount = (int) approx.size().height;
-            } else {
-                canvas.drawText("No contour found", 50, 50, textPaint);
             }
-            runOnUiThread(() -> imageView.setImageBitmap(overlay));
+            canvas.drawText(mean.toString(), 50, 50, textPaint);
+//            else {
+//                canvas.drawText("No contour found", 50, 50, textPaint);
+//            }
+//            runOnUiThread(() -> imageView.setImageBitmap(overlay));
             image.close();
         });
 

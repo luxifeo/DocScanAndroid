@@ -140,63 +140,70 @@ public class PreviewActivity extends AppCompatActivity {
         Imgproc.resize(mat, small, new Size(0, 0), ratio, ratio, Imgproc.INTER_LINEAR);
         // Calculate Canny
         Mat gray1 = new Mat();
+        Mat threshold = new Mat();
+
         Imgproc.cvtColor(small, gray1, Imgproc.COLOR_RGB2GRAY);
-        Mat edge = new Mat();
-        Imgproc.Canny(gray1, edge, 75, 200);
-        // Close potential edge
-        Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5, 5));
-        Mat close = new Mat();
-        Imgproc.morphologyEx(edge, close, Imgproc.MORPH_CLOSE, kernel);
+        Imgproc.threshold(gray1, threshold, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
+        Scalar mean = Core.mean(threshold);
+        double meanVal = mean.val[0];
+        Mat paper;
         List<MatOfPoint> contours = new ArrayList<>();
+        if (meanVal > 200) {
+            paper = mat;
+        } else {
+            Mat edge = new Mat();
+            Imgproc.Canny(gray1, edge, 75, 200);
+            // Close potential edge
+            Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5, 5));
+            Mat close = new Mat();
+            Imgproc.morphologyEx(edge, close, Imgproc.MORPH_CLOSE, kernel);
 
 
-        // find max area
-        Imgproc.findContours(close, contours, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
-        ProcessImage.sortContours(contours);
-        MatOfPoint2f temp = new MatOfPoint2f();
-        MatOfPoint2f approx = new MatOfPoint2f();
-        int maxAreaIndex = 0;
-        for (MatOfPoint contour : contours) {
-            contour.convertTo(temp, CvType.CV_32FC2);
-            double peri = Imgproc.arcLength(temp, true);
-            Imgproc.approxPolyDP(temp, approx, 0.05 * peri, true);
-            if (approx.total() == 4) {
-                break;
+
+            // find max area
+            Imgproc.findContours(close, contours, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
+            ProcessImage.sortContours(contours);
+            MatOfPoint2f temp = new MatOfPoint2f();
+            MatOfPoint2f approx = new MatOfPoint2f();
+            int maxAreaIndex = 0;
+            for (MatOfPoint contour : contours) {
+                contour.convertTo(temp, CvType.CV_32FC2);
+                double peri = Imgproc.arcLength(temp, true);
+                Imgproc.approxPolyDP(temp, approx, 0.05 * peri, true);
+                if (approx.total() == 4) {
+                    break;
+                }
+                maxAreaIndex++;
+                // Search only 5 biggest contour
+                if (maxAreaIndex == 5) {
+                    break;
+                }
             }
-            maxAreaIndex++;
-            // Search only 5 biggest contour
             if (maxAreaIndex == 5) {
-                break;
+                imageView.setImageBitmap(bitmap);
+                Toast.makeText(this, R.string.table_not_found, Toast.LENGTH_SHORT).show();
+                return;
             }
-        }
-        if (maxAreaIndex == 5) {
-            imageView.setImageBitmap(bitmap);
-            Toast.makeText(this, R.string.table_not_found, Toast.LENGTH_SHORT).show();
-            return;
-        }
-        Point[] points = approx.toArray();
-        for (Point point : points) {
-            point.x /= ratio;
-            point.y /= ratio;
-        }
-        approx.fromArray(points);
+            Point[] points = approx.toArray();
+            for (Point point : points) {
+                point.x /= ratio;
+                point.y /= ratio;
+            }
+            approx.fromArray(points);
 
-//        points = contours.get(maxAreaIndex).toArray();
-//        for (Point point : points) {
-//            point.x /= ratio;
-//            point.y /= ratio;
-//        }
-//        contours.get(maxAreaIndex).fromArray(points);
-        Mat paper = ProcessImage.fourPointTransform(mat, approx);
+            paper = ProcessImage.fourPointTransform(mat, approx);
+        }
+
         height = paper.height();
         width = paper.width();
         Imgproc.cvtColor(paper, gray1, Imgproc.COLOR_BGR2GRAY);
         Mat thresh = new Mat();
         Imgproc.threshold(gray1, thresh, 127, 255, Imgproc.THRESH_BINARY_INV + Imgproc.THRESH_OTSU);
         Imgproc.findContours(thresh, contours, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
-
+        MatOfPoint2f temp = new MatOfPoint2f();
+        MatOfPoint2f approx = new MatOfPoint2f();
         ProcessImage.sortContours(contours);
-        maxAreaIndex = 0;
+        int maxAreaIndex = 0;
         MatOfInt hull = new MatOfInt();
         for (MatOfPoint contour : contours) {
             contour.convertTo(temp, CvType.CV_32FC2);
@@ -217,41 +224,38 @@ public class PreviewActivity extends AppCompatActivity {
             break;
         }
 
-        if (approx.total() != 4) {
-            RotatedRect rotatedRect = Imgproc.minAreaRect(new MatOfPoint2f(hull));
-            Imgproc.boxPoints(rotatedRect, approx);
-        }
+//        if (approx.total() != 4) {
+//            RotatedRect rotatedRect = Imgproc.minAreaRect(new MatOfPoint2f(hull));
+//            Imgproc.boxPoints(rotatedRect, approx);
+//        }
 
         if (maxAreaIndex == contours.size()) {
             return;
         }
-//        Point[] tablePoints = approx.toArray();
-        Imgproc.drawContours(paper, contours, maxAreaIndex, new Scalar(255, 0, 0, 255), 10);
-        // TODO: MatOfPoint2f to MatOfPoint
+
+        MatOfPoint approxf1 = new MatOfPoint();
+        approx.convertTo(approxf1, CvType.CV_32S);
+        contours.add(approxf1);
+        List<MatOfPoint> contourTemp = new ArrayList<>();
+        contourTemp.add(approxf1);
+        Imgproc.drawContours(paper, contourTemp, 0, new Scalar(255, 0, 0, 255), 10);
 
         Mat smallPaper = new Mat();
         Imgproc.resize(paper, smallPaper, new Size(0, 0), 0.5, 0.5, Imgproc.INTER_LINEAR);
         Bitmap bitmapPaper = Bitmap.createBitmap(smallPaper.width(), smallPaper.height(), Bitmap.Config.ARGB_8888);
         Utils.matToBitmap(smallPaper, bitmapPaper);
         this.table = ProcessImage.fourPointTransform(gray1, approx);
-//        Bitmap bitmapPaper = Bitmap.createBitmap(this.table.width(), this.table.height(), Bitmap.Config.ARGB_8888);
-//        Utils.matToBitmap(table, bitmapPaper);
         imageView.setImageBitmap(bitmapPaper);
         this.gray_table = ProcessImage.fourPointTransform(thresh, approx);
     }
 
 
-    private String[][] processTable(Mat table, Mat gray_table) {
+    private String[][] processTable(Mat table, Mat grayTable) {
         // Finding the and the vertices in the image
-        int width = gray_table.width();
-        Mat h_structure = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size((int) (width / 15), 1));
-        Mat w_structure = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(1, (int) (width / 15)));
-        Mat horizontal = ProcessImage.isolateLines(gray_table, h_structure);
-        Mat vertical = ProcessImage.isolateLines(gray_table, w_structure);
-        Mat intersection = new Mat();
-        Core.bitwise_and(horizontal, vertical, intersection);
-        List<MatOfPoint> contours = new ArrayList<>();
+        int width = grayTable.width();
+        Mat intersection = ProcessImage.findVerticesImage(grayTable);
 
+        List<MatOfPoint> contours = new ArrayList<>();
         Imgproc.findContours(intersection, contours, new Mat(), Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
         final List<Point> joints = new ArrayList<>();
         for (MatOfPoint contour : contours) {

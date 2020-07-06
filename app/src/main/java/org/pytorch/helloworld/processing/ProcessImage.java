@@ -143,4 +143,15 @@ public class ProcessImage {
         MatOfPoint2f box_point = getSpecificBox(i, order, group);
         return fourPointTransform(table, box_point);
     }
+
+    public static Mat findVerticesImage(Mat grayTable) {
+        int width = grayTable.width();
+        Mat h_structure = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size((int) (width / 15), 1));
+        Mat w_structure = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(1, (int) (width / 15)));
+        Mat horizontal = ProcessImage.isolateLines(grayTable, h_structure);
+        Mat vertical = ProcessImage.isolateLines(grayTable, w_structure);
+        Mat intersection = new Mat();
+        Core.bitwise_and(horizontal, vertical, intersection);
+        return intersection;
+    }
 }
